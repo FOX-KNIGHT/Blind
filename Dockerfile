@@ -25,6 +25,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
             # Define the port environment variable
             ENV PORT=5000
 
-            # Run the application using gunicorn with eventlet worker class
-            CMD ["gunicorn", "--workers", "1", "--worker-class", "eventlet", "--timeout", "120", "--bind", "0.0.0.0:5000", "app:app"]
+            # Run the application using gunicorn with custom eventlet worker class
+            CMD ["gunicorn", "--workers", "1", "--worker-class", "custom_worker.CustomEventletWorker", "--timeout", "120", "--bind", "0.0.0.0:5000", "app:app"]
             

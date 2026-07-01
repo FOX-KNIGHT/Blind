@@ -40,6 +40,8 @@ class MovingObjectTracker:
         
         self.label = label
         self.frames_without_update = 0
+        self.last_z = None
+        self.vz_mps_smoothed = 0.0
 
     def predict(self):
         """
@@ -104,12 +106,19 @@ class MovingObjectTracker:
         # X velocity (lateral): (vx_pixels * Z) / f
         vx_mps = (vx_pixels_per_frame * current_z / focal_length) * fps
         
-        # Z velocity (approaching/leaving): We use the change in area to estimate change in Z.
-        if v_area_per_frame > 50:
-            vz_mps = 1.0 # arbitrary approaching speed
-        elif v_area_per_frame < -50:
-            vz_mps = -1.0 # arbitrary leaving speed
+        # Z velocity (approaching/leaving): calculate rate of change of depth
+        if self.last_z is not None:
+            # Positive vz means approaching (distance Z is decreasing over time)
+            raw_vz = (self.last_z - current_z) * fps
+            self.vz_mps_smoothed = 0.7 * self.vz_mps_smoothed + 0.3 * raw_vz
         else:
-            vz_mps = 0.0
-            
-        return vx_mps, vz_mps
+            # Estimate from area rate of change if we don't have previous depth yet
+            if v_area_per_frame > 20:
+                self.vz_mps_smoothed = 0.8
+            elif v_area_per_frame < -20:
+                self.vz_mps_smoothed = -0.8
+            else:
+                self.vz_mps_smoothed = 0.0
+                
+        self.last_z = current_z
+        return round(float(vx_mps), 2), round(float(self.vz_mps_smoothed), 2)

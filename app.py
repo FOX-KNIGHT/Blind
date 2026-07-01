@@ -1,12 +1,17 @@
-try:
-    import eventlet
-    # Only patch socket/select — patching os/thread breaks ultralytics' cpuinfo module
-    eventlet.monkey_patch(socket=True, select=True)
-except ImportError:
-    pass  # eventlet is only required in production (Gunicorn on Render)
-
 import sys
 import os
+
+# Only use eventlet on Linux/Render production. On Windows (local dev), use standard threading
+if not sys.platform.startswith('win'):
+    try:
+        import eventlet
+        eventlet.monkey_patch(socket=True, select=True)
+        async_mode = 'eventlet'
+    except ImportError:
+        async_mode = 'threading'
+else:
+    async_mode = 'threading'
+
 import time
 import base64
 import traceback
@@ -21,11 +26,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'BlindAssistant'))
 from tracker.motion import VisionPipeline
 from tracker.kalman import MovingObjectTracker
 from tracker.hungarian import associate_detections_to_trackers
-from tracker.voice import evaluate_and_instruct
+from tracker.voice import evaluate_and_instruct, evaluate_all_trackers_telemetry
+from tracker.metrics import get_validation_metrics
 
 app = Flask(__name__)
-# Allow CORS for easy testing; async_mode must match the worker class
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet',
+# Allow CORS for easy testing; async_mode matches Windows local dev vs Linux production
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode,
                     ping_timeout=60, ping_interval=25)
 
 print("[INFO] Initializing Vision Pipeline (YOLO)...")
@@ -41,6 +47,7 @@ vision_engine = VisionPipeline(yolo_path)
 
 active_trackers = []
 frame_width = 640
+is_processing_frame = False
 
 class WebTTSManager:
     """Mock TTS Manager that captures text to send to the web client."""
@@ -63,6 +70,10 @@ def index():
 def health():
     return {'status': 'ok'}, 200
 
+@app.route('/api/metrics')
+def metrics():
+    return get_validation_metrics(), 200
+
 @socketio.on('connect')
 def handle_connect():
     print("[INFO] Client connected via WebSocket")
@@ -73,8 +84,15 @@ def handle_disconnect():
 
 @socketio.on('video_frame')
 def handle_video_frame(data):
-    global active_trackers, frame_width, tts_manager
+    global active_trackers, frame_width, tts_manager, is_processing_frame
     
+    if is_processing_frame:
+        # Server is busy executing YOLO inference on the current frame.
+        # In real-time assistive tracking, stale queued frames must be dropped immediately
+        # to prevent socket buffer backlog and out-of-memory crashes on cloud CPUs.
+        return
+        
+    is_processing_frame = True
     try:
         # 1. Decode incoming frame
         try:
@@ -115,23 +133,39 @@ def handle_video_frame(data):
         tts_manager.current_instruction = None # Reset for this frame
         evaluate_and_instruct(active_trackers, frame_width, tts_manager)
         
-        # 6. Draw Bounding Boxes
-        for tracker in active_trackers:
+        # 5b. Generate comprehensive telemetry and collision rankings
+        telemetry = evaluate_all_trackers_telemetry(active_trackers, frame_width)
+        
+        # 6. Draw Bounding Boxes with Distance & Ranking
+        for idx, tracker in enumerate(active_trackers):
             box = tracker.get_current_box()
             x, y, w, h = box
             color = (0, 165, 255) if tracker.label == "Moving Obstacle" else (0, 255, 0)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(frame, tracker.label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
             
-        # 7. Encode back to base64
-        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            # Highlight #1 Impact Threat in bright RED
+            dist_str = ""
+            for item in telemetry:
+                if item["id"] == idx + 1:
+                    dist_str = f" | {item['distance']}m"
+                    if "Impact Threat" in item["rank"]:
+                        color = (0, 0, 255) # Red for primary collision hazard
+                    elif item["risk"] in ["High", "Critical"]:
+                        color = (0, 140, 255) # Orange for proximity hazard
+                    break
+                    
+            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+            cv2.putText(frame, f"{tracker.label}{dist_str}", (x, max(20, y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            
+        # 7. Encode back to base64 with optimized compression
+        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
         encoded_image = base64.b64encode(buffer).decode('utf-8')
         data_url = 'data:image/jpeg;base64,' + encoded_image
         
-        # Send back to client
+        # Send back to client with full real-time telemetry
         emit('processed_frame', {
             'image': data_url,
-            'instruction': tts_manager.current_instruction
+            'instruction': tts_manager.current_instruction,
+            'telemetry': telemetry
         })
     except Exception as e:
         print(f"[ERROR] Frame processing failed: {e}")
@@ -140,9 +174,11 @@ def handle_video_frame(data):
             'image': '',
             'instruction': f'Server error: {str(e)}'
         })
+    finally:
+        is_processing_frame = False
 
 if __name__ == '__main__':
     print("[INFO] Starting Flask-SocketIO Server...")
     # Cloud providers like Render supply a PORT environment variable
     port = int(os.environ.get("PORT", 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
