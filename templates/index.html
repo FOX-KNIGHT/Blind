@@ -1,22 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlindAssistive AI™ — Real-Time Vision Co-Pilot</title>
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
     <!-- Chart.js & Socket.IO Client -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-    
+
     <!-- Modular Cyber-Cockpit Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
     <!-- Header Navigation -->
@@ -48,7 +52,7 @@
         <!-- ========================================== -->
         <div id="live-tab" class="tab-content active">
             <div class="live-grid">
-                
+
                 <!-- Left: Video & Targeting HUD -->
                 <div class="card" style="padding: 1rem;">
                     <div class="card-title"><span>🎯</span> Kinematic Targeting HUD</div>
@@ -63,8 +67,10 @@
                         <!-- Telemetry Badges -->
                         <div class="video-overlay-badges">
                             <div class="badge" id="fpsBadge" style="border-color: rgba(0, 242, 254, 0.4);">FPS: --</div>
-                            <div class="badge" id="latencyBadge" style="border-color: rgba(168, 85, 247, 0.4);">Latency: -- ms</div>
-                            <div class="badge" id="trackerBadge" style="color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">Active Targets: 0</div>
+                            <div class="badge" id="latencyBadge" style="border-color: rgba(168, 85, 247, 0.4);">Latency:
+                                -- ms</div>
+                            <div class="badge" id="trackerBadge"
+                                style="color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">Active Targets: 0</div>
                         </div>
 
                         <!-- Camera Streams -->
@@ -76,45 +82,56 @@
 
                 <!-- Right: Controls & Voice Guidance -->
                 <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                    
+
                     <!-- Voice Guidance Box -->
                     <div class="card">
                         <div class="card-title"><span>🔊</span> Spoken Navigation Guidance</div>
                         <div class="voice-box">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                                <span style="color: var(--accent-cyan); font-weight: 700; font-size: 0.85rem; letter-spacing: 1px;">◉ LIVE VOICE CO-PILOT</span>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <span
+                                    style="color: var(--accent-cyan); font-weight: 700; font-size: 0.85rem; letter-spacing: 1px;">◉
+                                    LIVE VOICE CO-PILOT</span>
                                 <div class="audio-waves" id="audioWaves">
                                     <span></span><span></span><span></span><span></span>
                                 </div>
                             </div>
-                            <div id="instructionText" style="font-size: 1.15rem; font-weight: 500; color: #fff; line-height: 1.4;">
+                            <div id="instructionText"
+                                style="font-size: 1.15rem; font-weight: 500; color: #fff; line-height: 1.4;">
                                 System ready. Click 'Start AI Tracking' to initiate real-time obstacle kinematics.
                             </div>
                         </div>
-                        
+
                         <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
-                            <button class="btn btn-secondary" onclick="repeatLastInstruction()" style="flex: 1; font-size: 0.85rem;">🔁 Repeat</button>
-                            <button class="btn btn-secondary" onclick="toggleAudio()" id="audioToggleBtn" style="flex: 1; font-size: 0.85rem;">🔊 Mute Voice</button>
+                            <button class="btn btn-secondary" onclick="repeatLastInstruction()"
+                                style="flex: 1; font-size: 0.85rem;">🔁 Repeat</button>
+                            <button class="btn btn-secondary" onclick="toggleAudio()" id="audioToggleBtn"
+                                style="flex: 1; font-size: 0.85rem;">🔊 Mute Voice</button>
                         </div>
                     </div>
 
                     <!-- Action Controls -->
                     <div class="card">
                         <div class="card-title"><span>⚙️</span> Cockpit Controls</div>
-                        <button class="btn btn-primary" id="startBtn" onclick="startTracking()">🚀 Start AI Tracking</button>
-                        <button class="btn btn-danger" id="stopBtn" onclick="stopTracking()" style="display: none;">⏹️ Stop Tracking</button>
+                        <button class="btn btn-primary" id="startBtn" onclick="startTracking()">🚀 Start AI
+                            Tracking</button>
+                        <button class="btn btn-danger" id="stopBtn" onclick="stopTracking()" style="display: none;">⏹️
+                            Stop Tracking</button>
                     </div>
 
                     <!-- Instant Threat Status -->
                     <div class="card">
                         <div class="card-title"><span>⚡</span> Immediate Hazard Alert</div>
-                        <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <div
+                            style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
                             <span style="color: var(--text-dim);">Primary Threat:</span>
-                            <span id="quickThreat" style="font-weight: 700; color: var(--status-safe);">None / Safe</span>
+                            <span id="quickThreat" style="font-weight: 700; color: var(--status-safe);">None /
+                                Safe</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
                             <span style="color: var(--text-dim);">Min Distance:</span>
-                            <span id="quickDist" style="font-family: var(--font-mono); color: var(--accent-cyan);">-- m</span>
+                            <span id="quickDist" style="font-family: var(--font-mono); color: var(--accent-cyan);">--
+                                m</span>
                         </div>
                     </div>
 
@@ -126,34 +143,46 @@
         <!-- TAB 2: ANALYTICS & REPORT CARD           -->
         <!-- ========================================== -->
         <div id="analytics-tab" class="tab-content">
-            
+
             <!-- 1. Prototype Evaluation Report Card -->
             <div class="card" style="margin-bottom: 1.5rem; border-color: rgba(0, 242, 254, 0.4);">
                 <div class="card-title" style="color: var(--accent-cyan); font-size: 1.2rem;">
                     <span>📋</span> Prototype Evaluation Report Card (Recorded Video Benchmarks)
                 </div>
-                
+
                 <div class="report-grid">
                     <div class="report-card">
-                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.3rem;">1. Perfect Correctness</div>
-                        <div id="rcCorrect" style="font-size: 1.15rem; font-weight: 700; color: var(--status-safe);">89.2% Perfect Accuracy</div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">1,210 exact detections across test videos</div>
+                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.3rem;">1. Perfect
+                            Correctness</div>
+                        <div id="rcCorrect" style="font-size: 1.15rem; font-weight: 700; color: var(--status-safe);">
+                            89.2% Perfect Accuracy</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">1,210 exact detections
+                            across test videos</div>
                     </div>
                     <div class="report-card">
-                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.3rem;">2. Missed Dangers Rate</div>
-                        <div id="rcMissed" style="font-size: 1.15rem; font-weight: 700; color: var(--status-warn);">13.5% Missed Dangers</div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">61 unalerted hazards across 451 events</div>
+                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.3rem;">2. Missed
+                            Dangers Rate</div>
+                        <div id="rcMissed" style="font-size: 1.15rem; font-weight: 700; color: var(--status-warn);">
+                            13.5% Missed Dangers</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">61 unalerted hazards across
+                            451 events</div>
                     </div>
                     <div class="report-card">
-                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.3rem;">3. False Alarm Rate</div>
-                        <div id="rcFalseAlarm" style="font-size: 1.15rem; font-weight: 700; color: #38bdf8;">4.3% False Alarms</div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">69 false triggers out of 1,580 shadow frames</div>
+                        <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.3rem;">3. False Alarm
+                            Rate</div>
+                        <div id="rcFalseAlarm" style="font-size: 1.15rem; font-weight: 700; color: #38bdf8;">4.3% False
+                            Alarms</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem;">69 false triggers out of
+                            1,580 shadow frames</div>
                     </div>
                 </div>
 
-                <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.5rem;">4. Where it got confused (Class Confusion Breakdown):</div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.85rem; color: #cbd5e1;">
+                <div
+                    style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.5rem;">4. Where it got
+                        confused (Class Confusion Breakdown):</div>
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.85rem; color: #cbd5e1;">
                         <div>🔸 <b>Obstacle ➔ Person</b> (14x)</div>
                         <div>🔸 <b>Person ➔ Obstacle</b> (12x)</div>
                         <div>🔸 <b>Furniture ➔ Obstacle</b> (9x)</div>
@@ -166,9 +195,10 @@
             <div class="card" style="margin-bottom: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <div class="card-title" style="margin: 0;"><span>📥</span> Live Kinematic Parameter Records</div>
-                    <button class="btn btn-secondary" onclick="exportHistoricalLogs()" style="padding: 0.5rem 1rem; font-size: 0.85rem;">⬇️ Export CSV</button>
+                    <button class="btn btn-secondary" onclick="exportHistoricalLogs()"
+                        style="padding: 0.5rem 1rem; font-size: 0.85rem;">⬇️ Export CSV</button>
                 </div>
-                
+
                 <div class="table-container">
                     <table>
                         <thead>
@@ -183,7 +213,8 @@
                         </thead>
                         <tbody id="liveTelemetryBody">
                             <tr>
-                                <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">No moving targets recorded. Start tracking to generate live kinematics.</td>
+                                <td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">No
+                                    moving targets recorded. Start tracking to generate live kinematics.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -210,4 +241,5 @@
     <!-- Modular Application Logic -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+
 </html>

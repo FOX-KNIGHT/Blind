@@ -110,7 +110,7 @@ class MovingObjectTracker:
         if self.last_z is not None:
             # Positive vz means approaching (distance Z is decreasing over time)
             raw_vz = (self.last_z - current_z) * fps
-            self.vz_mps_smoothed = 0.7 * self.vz_mps_smoothed + 0.3 * raw_vz
+            self.vz_mps_smoothed = 0.4 * self.vz_mps_smoothed + 0.6 * raw_vz
         else:
             # Estimate from area rate of change if we don't have previous depth yet
             if v_area_per_frame > 20:
