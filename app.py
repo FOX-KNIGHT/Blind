@@ -1,5 +1,8 @@
-import eventlet
-eventlet.monkey_patch()
+try:
+    import eventlet
+    eventlet.monkey_patch()
+except ImportError:
+    pass  # eventlet is only required in production (Gunicorn on Render)
 
 import sys
 import os
