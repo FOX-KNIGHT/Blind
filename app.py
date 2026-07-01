@@ -1,6 +1,7 @@
 try:
     import eventlet
-    eventlet.monkey_patch()
+    # Only patch socket/select — patching os/thread breaks ultralytics' cpuinfo module
+    eventlet.monkey_patch(socket=True, select=True)
 except ImportError:
     pass  # eventlet is only required in production (Gunicorn on Render)
 
