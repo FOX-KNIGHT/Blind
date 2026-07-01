@@ -1,0 +1,9 @@
+Flask==3.0.2
+Flask-SocketIO==5.3.6
+eventlet==0.35.1
+gunicorn==21.2.0
+ultralytics==8.1.0
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+filterpy==1.4.5
+scipy

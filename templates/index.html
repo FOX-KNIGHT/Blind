@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blind Assistive Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        body { 
+            margin: 0; padding: 0; background-color: #111; color: white; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            min-height: 100vh; font-family: sans-serif; 
+        }
+        #videoElement { display: none; } /* Raw video is hidden */
+        #processedImage { width: 100%; max-width: 600px; height: auto; border: 2px solid #333; display: none; }
+        #status { margin: 15px; font-size: 1.2em; text-align: center; min-height: 30px; color: #ffeb3b; }
+        button { 
+            padding: 15px 30px; font-size: 1.2em; border-radius: 10px; 
+            background-color: #007bff; color: white; border: none; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <video id="videoElement" autoplay playsinline></video>
+    <canvas id="canvasElement" style="display:none;"></canvas>
+    
+    <div id="status">Press Start to access camera and audio</div>
+    <img id="processedImage" alt="Video Feed" />
+    <button id="startButton">Start Assistant</button>
+
+    <script>
+        const socket = io();
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvasElement');
+        const context = canvas.getContext('2d');
+        const processedImage = document.getElementById('processedImage');
+        const statusDiv = document.getElementById('status');
+        const startButton = document.getElementById('startButton');
+
+        let isStreaming = false;
+
+        startButton.addEventListener('click', async () => {
+            try {
+                // Initialize speech synthesis 
+                const utterance = new SpeechSynthesisUtterance("System initialized. Connecting to server.");
+                window.speechSynthesis.speak(utterance);
+
+                // Request rear camera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
+                });
+                
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    isStreaming = true;
+                    startButton.style.display = 'none';
+                    processedImage.style.display = 'block';
+                    statusDiv.innerText = "Streaming... Please wait.";
+                    sendFrames();
+                };
+            } catch (err) {
+                console.error("Camera access error:", err);
+                statusDiv.innerText = "Error accessing camera. Check permissions.";
+            }
+        });
+
+        const TARGET_FPS = 8; // Adjust for bandwidth 
+        
+        function sendFrames() {
+            if (!isStreaming) return;
+            
+            // Draw raw video to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Compress to JPEG and send
+            const dataURL = canvas.toDataURL('image/jpeg', 0.6);
+            socket.emit('video_frame', { image: dataURL });
+            
+            setTimeout(sendFrames, 1000 / TARGET_FPS);
+        }
+
+        socket.on('processed_frame', (data) => {
+            processedImage.src = data.image;
+            statusDiv.innerText = "Tracking active";
+            
+            if (data.instruction) {
+                console.log("Instruction: ", data.instruction);
+                statusDiv.innerText = data.instruction;
+                
+                // Speak the instruction using native browser TTS
+                const utterance = new SpeechSynthesisUtterance(data.instruction);
+                window.speechSynthesis.speak(utterance);
+            }
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            statusDiv.innerText = "Disconnected from server.";
+        });
+    </script>
+</body>
+</html>
