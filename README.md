@@ -1,3 +1,12 @@
+---
+title: BLIND Assistive Navigation Engine
+emoji: 🧭
+colorFrom: cyan
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
 # BLIND: AI-Powered Real-Time Assistive Navigation & Obstacle Tracking System
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)

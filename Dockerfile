@@ -23,4 +23,4 @@ COPY . .
 ENV PORT=5000
 
 # Run the application using gunicorn with custom eventlet worker class
-CMD ["gunicorn", "--workers", "1", "--worker-class", "custom_worker.CustomEventletWorker", "--timeout", "120", "--bind", "0.0.0.0:5000", "app:app"]
+CMD gunicorn --workers 1 --worker-class custom_worker.CustomEventletWorker --timeout 120 --bind 0.0.0.0:${PORT:-7860} app:app
